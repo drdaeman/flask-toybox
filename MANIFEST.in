@@ -1,0 +1,4 @@
+include tests/*
+include *.txt
+include tox.ini
+include .travis.yml
