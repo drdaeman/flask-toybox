@@ -109,9 +109,11 @@ def saModelView(session):
                 raise InternalServerError("<p>Server entity misconfiguration.</p>")
             return super(SAModelView, self).__init__(*args, **kwargs)
 
+        def get_query(self, *args, **kwargs):
+            return session.query(self.model).filter_by(**kwargs)
+
         def fetch_object(self, *args, **kwargs):
-            model = self.model
-            obj = session.query(model).filter_by(**kwargs).one()
+            obj = self.get_query(*args, **kwargs).one()
             if hasattr(g, "etagger"):
                 g.etagger.set_object(obj)
             return obj

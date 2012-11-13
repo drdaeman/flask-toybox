@@ -161,10 +161,11 @@ class NegotiatingMethodView(MethodView):
             response.set_etag(etagger.etag)
         return response
 
-class ModelView(NegotiatingMethodView):
+class BaseModelView(NegotiatingMethodView):
     """
     A `NegotiatingMethodView`-based class, that simplifies working with
-    database models.
+    database models or alike objects. This view is intended to be generic
+    and read-only. Use `ModelView` if you need write support.
 
     This class contains pseudo-abstract method `fetch_object` that you
     must implement in derived classes.
@@ -198,9 +199,6 @@ class ModelView(NegotiatingMethodView):
             self.cached_object = self.fetch_object(*args, **kwargs)
         return self.cached_object
 
-    def get_columns(self, *args, **kwargs):
-        return self.get_object(*args, **kwargs).get_columns()
-
     def get(self, *args, **kwargs):
         obj = self.get_object(*args, **kwargs)
         headers = {}
@@ -211,6 +209,15 @@ class ModelView(NegotiatingMethodView):
                 headers["X-Access-Classes"] = ", ".join(sorted(access))
 
         return obj, 200, headers
+
+class ModelView(BaseModelView):
+    """
+    An class on top of `BaseModelView` that provides write support
+    for single model instances.
+    """
+
+    def get_columns(self, *args, **kwargs):
+        return self.get_object(*args, **kwargs).get_columns()
 
     # TODO: Implement `put` method for object creation and updates.
     # TODO: Implement `delete` method for object deletion.
