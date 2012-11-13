@@ -1,6 +1,9 @@
 Flask-ToyBox
 ============
 
+.. image:: https://secure.travis-ci.org/drdaeman/flask-toybox.png?branch=master
+        :target: https://travis-ci.org/drdaeman/flask-toybox
+
 Sorry, no documentation yet, this is totally **pre-alpha** quality.
 
 I just needed something to implement somehow RESTful (or, to be precise, what
@@ -27,7 +30,7 @@ What's missing:
 - Examples.
 - Documentation. There are some docstrings in source code, but not much.
 - POST, PUT and DELETE requests (object creation and deletion).
-- Overriding negotiation using query string (i.e. `?format=json`)
+- Overriding negotiation using query string (i.e. ``?format=json``)
 - Pagination helpers. Pagination is possible, but you have to do it by hand.
 - Nested resources.
 - Better test coverage.
@@ -37,4 +40,4 @@ Copyright
 
 Copyright (c) 2012, Aleksey Zhukov.
 
-Distributed under MIT (Expat) license. See `LICENSE.txt` for details.
+Distributed under MIT (Expat) license. See ``LICENSE.txt`` for details.
