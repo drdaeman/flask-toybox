@@ -13,11 +13,12 @@ from __future__ import absolute_import
 
 from collections import OrderedDict
 from sqlalchemy.orm import column_property, class_mapper, relationship, ColumnProperty, object_session
+from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.schema import Column
 from .views import ModelView
 from .permissions import ModelColumnInfo
 from flask import g
-from werkzeug.exceptions import InternalServerError
+from werkzeug.exceptions import InternalServerError, NotFound
 
 def column_info(model, name, column):
     return ModelColumnInfo(model, name,
@@ -90,9 +91,9 @@ def hasUserMixin(owner_id_field):
             p = set()
             if user is not None:
                 p.add("authenticated")
-                if user.is_superuser: p.add("admin")
-                if user.is_staff: p.add("staff")
                 if user.id == getattr(self, owner_id_field): p.add("owner")
+                if getattr(user, "is_superuser", False): p.add("admin")
+                if getattr(user, "is_staff", False): p.add("staff")
             else:
                 p.add("anonymous")
             return p
@@ -113,7 +114,10 @@ def saModelView(session):
             return session.query(self.model).filter_by(**kwargs)
 
         def fetch_object(self, *args, **kwargs):
-            obj = self.get_query(*args, **kwargs).one()
+            try:
+                obj = self.get_query(*args, **kwargs).one()
+            except NoResultFound:
+                raise NotFound()
             if hasattr(g, "etagger"):
                 g.etagger.set_object(obj)
             return obj
