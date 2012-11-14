@@ -1,4 +1,6 @@
 include tests/*
+recursive-include example *.py *.txt *.rst
+exclude example/*.sqlite3
 include *.txt
 include tox.ini
 include .travis.yml

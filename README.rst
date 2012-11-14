@@ -11,6 +11,8 @@ I consider RESTful) API. I've looked around for a readily available solution,
 but didn't found anything that suited my needs and desires. So I've wrote a
 hopefully reusable library to do it.
 
+The work is in progress, and API is unstable and subject to various changes.
+
 See feature list below for main points about this library.
 
 Features
@@ -27,7 +29,7 @@ What's implemented:
 
 What's missing:
 
-- Examples.
+- Better example.
 - Documentation. There are some docstrings in source code, but not much.
 - POST, PUT and DELETE requests (object creation and deletion).
 - Overriding negotiation using query string (i.e. ``?format=json``)
