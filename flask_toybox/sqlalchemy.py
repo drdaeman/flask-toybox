@@ -91,7 +91,8 @@ def hasUserMixin(owner_id_field):
             p = set()
             if user is not None:
                 p.add("authenticated")
-                if user.id == getattr(self, owner_id_field): p.add("owner")
+                if owner_id_field is not None:
+                    if user.id == getattr(self, owner_id_field): p.add("owner")
                 if getattr(user, "is_superuser", False): p.add("admin")
                 if getattr(user, "is_staff", False): p.add("staff")
             else:
