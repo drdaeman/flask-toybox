@@ -106,38 +106,40 @@ class SAModelViewBase(object):
             raise InternalServerError("<p>Server entity misconfiguration.</p>")
         return super(SAModelViewBase, self).__init__(*args, **kwargs)
 
-def saModelView(session):
-    """
-    Given an SQLAlchemy session object, returns a class that provides some
-    possibly useful default implementations for `get_object`.
-    """
-    class SAModelView(SAModelViewBase, ModelView):
-        def get_query(self, *args, **kwargs):
-            return session.query(self.model).filter_by(**kwargs)
+    def query_class(self, model):
+        """
+        Returns an object, that's API-compatible with `sqlalchemy.orm.query.Query`.
 
-        def fetch_object(self, *args, **kwargs):
-            try:
-                obj = self.get_query(*args, **kwargs).one()
-            except NoResultFound:
-                raise NotFound()
-            if hasattr(g, "etagger"):
-                g.etagger.set_object(obj)
-            return obj
+        Default implementation is a function that uses Flask-SQLAlchemy's provided
+        `model.query`. If you have a class, say `session.query`, implement this as
+        a property.
+        """
+        if model != self.model:
+            raise ValueError("Invalid model passed to SAModelViewBase.query_class")
+        return self.model.query
 
-    return SAModelView
+class SAModelView(SAModelViewBase, ModelView):
+    def get_query(self, *args, **kwargs):
+        return self.query_class(self.model).filter_by(**kwargs)
 
-def saCollectionView(session):
-    class SACollectionView(SAModelViewBase, BaseModelView):
-        def get_query(self, *args, **kwargs):
-            q = session.query(self.model)
-            if len(kwargs) > 0:
-                q = q.filter_by(**kwargs)
-            return q
+    def fetch_object(self, *args, **kwargs):
+        try:
+            obj = self.get_query(*args, **kwargs).one()
+        except NoResultFound:
+            raise NotFound()
+        if hasattr(g, "etagger"):
+            g.etagger.set_object(obj)
+        return obj
 
-        def fetch_object(self, *args, **kwargs):
-            objs = self.get_query(*args, **kwargs).all()
-            if hasattr(g, "etagger"):
-                g.etagger.set_object(objs)
-            return objs
+class SACollectionView(SAModelViewBase, BaseModelView):
+    def get_query(self, *args, **kwargs):
+        q = self.query_class(self.model)
+        if len(kwargs) > 0:
+            q = q.filter_by(**kwargs)
+        return q
 
-    return SACollectionView
+    def fetch_object(self, *args, **kwargs):
+        objs = self.get_query(*args, **kwargs).all()
+        if hasattr(g, "etagger"):
+            g.etagger.set_object(objs)
+        return objs

@@ -1,15 +1,11 @@
 from __future__ import absolute_import
-from flask.ext.toybox.sqlalchemy import saModelView, saCollectionView
+from flask.ext.toybox.sqlalchemy import SAModelView, SACollectionView
 from flask.ext.toybox.views import BaseModelView
 from sqlalchemy.orm.exc import NoResultFound
 from werkzeug.exceptions import NotFound
 from .utils import class_route
 from . import app, db
 from . import models
-
-
-SAModelView = saModelView(db.session)
-SACollectionView = saCollectionView(db.session)
 
 
 class UserSubmodelMixin(object):

@@ -1,6 +1,6 @@
 import unittest
 
-from flask.ext.toybox.sqlalchemy import SAModelMixin, saModelView, saCollectionView
+from flask.ext.toybox.sqlalchemy import SAModelMixin, SAModelView, SACollectionView
 from flask.ext.toybox.permissions import make_I
 from flask.ext.toybox import ToyBox
 from flask import Flask, g, request
@@ -62,13 +62,10 @@ class SQLAlchemyModelTestCase(unittest.TestCase):
         # Set up ToyBox
         toybox = ToyBox(app)
 
-        class UserView(saModelView(db_session)):
+        class UserView(SAModelView):
             model = User
+            query_class = db_session.query
 
-            #def fetch_object(self, username):
-            #    obj = db_session.query(User).filter_by(username=username).one()
-            #    g.etagger.set_object(obj)
-            #    return obj
             def save_object(self, obj):
                 # In a real code, this should be done by a middleware/wrapper.
                 # However, this is a test, so we simplify things a bit.
@@ -76,8 +73,9 @@ class SQLAlchemyModelTestCase(unittest.TestCase):
                 db_session.commit()
         app.add_url_rule("/users/<username>", view_func=UserView.as_view("user"))
 
-        class UsersView(saCollectionView(db_session)):
+        class UsersView(SACollectionView):
             model = User
+            query_class = db_session.query
         app.add_url_rule("/users/", view_func=UsersView.as_view("users"))
 
         self.app = app.test_client()
