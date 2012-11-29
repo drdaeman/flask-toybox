@@ -15,7 +15,7 @@ from collections import OrderedDict
 from sqlalchemy.orm import column_property, class_mapper, relationship, ColumnProperty, object_session
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.schema import Column
-from .views import ModelView
+from .views import ModelView, BaseModelView
 from .permissions import ModelColumnInfo
 from flask import g
 from werkzeug.exceptions import InternalServerError, NotFound
@@ -100,17 +100,18 @@ def hasUserMixin(owner_id_field):
             return p
     return HasUserMixin
 
+class SAModelViewBase(object):
+    def __init__(self, *args, **kwargs):
+        if not hasattr(self, "model") or len(args) > 0:
+            raise InternalServerError("<p>Server entity misconfiguration.</p>")
+        return super(SAModelViewBase, self).__init__(*args, **kwargs)
+
 def saModelView(session):
     """
     Given an SQLAlchemy session object, returns a class that provides some
     possibly useful default implementations for `get_object`.
     """
-    class SAModelView(ModelView):
-        def __init__(self, *args, **kwargs):
-            if not hasattr(self, "model") or len(args) > 0:
-                raise InternalServerError("<p>Server entity misconfiguration.</p>")
-            return super(SAModelView, self).__init__(*args, **kwargs)
-
+    class SAModelView(SAModelViewBase, ModelView):
         def get_query(self, *args, **kwargs):
             return session.query(self.model).filter_by(**kwargs)
 
@@ -139,3 +140,19 @@ def saModelView(session):
             return columns
 
     return SAModelView
+
+def saCollectionView(session):
+    class SACollectionView(SAModelViewBase, BaseModelView):
+        def get_query(self, *args, **kwargs):
+            q = session.query(self.model)
+            if len(kwargs) > 0:
+                q = q.filter_by(**kwargs)
+            return q
+
+        def fetch_object(self, *args, **kwargs):
+            objs = self.get_query(*args, **kwargs).all()
+            if hasattr(g, "etagger"):
+                g.etagger.set_object(objs)
+            return objs
+
+    return SACollectionView
