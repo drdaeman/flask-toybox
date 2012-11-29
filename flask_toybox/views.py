@@ -205,7 +205,7 @@ class BaseModelView(NegotiatingMethodView):
 
         if hasattr(obj, "check_permissions"):
             access = obj.check_permissions()
-            if len(access) > 0 and access != {"system"}:
+            if len(access) > 0 and access != frozenset(["system"]):
                 headers["X-Access-Classes"] = ", ".join(sorted(access))
 
         return obj, 200, headers
@@ -227,12 +227,12 @@ class ModelView(BaseModelView):
 
         if hasattr(obj, "check_permissions"):
             access = obj.check_permissions()
-            columns = {c.name: c.permissions.get("writeable", set())
-                       for c in self.get_columns(only_db_columns=True)}
+            columns = dict([(c.name, c.permissions.get("writeable", set()))
+                            for c in self.get_columns(only_db_columns=True)])
         else:
             access = frozenset(["system"])
-            columns = {c.name: frozenset(["system"])
-                       for c in self.get_columns(only_db_columns=True)}
+            columns = dict([(c.name, frozenset(["system"]))
+                            for c in self.get_columns(only_db_columns=True)])
 
         r = {}
         for k, v in request.decoded_data.items():

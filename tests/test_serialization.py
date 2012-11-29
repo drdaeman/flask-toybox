@@ -2,6 +2,10 @@ import unittest
 
 from flask.ext.toybox import serialization
 import collections
+try:
+    from collections import OrderedDict
+except ImportError:
+    from ordereddict import OrderedDict
 import datetime
 import decimal
 
@@ -42,7 +46,7 @@ class SerializationTestCase(unittest.TestCase):
         self.assertEqual(serialized, reference)
 
     def test_json_default(self):
-        data = collections.OrderedDict([
+        data = OrderedDict([
             ("datetime", datetime.datetime(2012, 1, 1, 0, 0, 0, 0)),
             ("decimal", decimal.Decimal("4242.42424242424242424242")),
             ("as_list", SpamList((1, 2, 3))),

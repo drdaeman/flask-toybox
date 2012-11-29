@@ -8,7 +8,10 @@ In ToyBox, there are two concepts for this, called *serializers* and
 """
 
 import json
-import collections
+try:
+    from collections import OrderedDict
+except ImportError:
+    from ordereddict import OrderedDict
 import decimal
 
 class ExtendedJSONEncoder(json.JSONEncoder):
@@ -48,7 +51,7 @@ class ExtendedJSONEncoder(json.JSONEncoder):
         if hasattr(obj, "to_json"):
             return obj.to_json()
         if isinstance(obj, tuple) and hasattr(obj, "_fields"):
-            obj = collections.OrderedDict((k, v) for k, v in zip(obj._fields, obj))
+            obj = OrderedDict((k, v) for k, v in zip(obj._fields, obj))
         return super(ExtendedJSONEncoder, self).encode(obj)
 
     def default(self, obj):

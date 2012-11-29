@@ -31,9 +31,9 @@ class User(Base, SAModelMixin):
         auth = request.args.get("auth", "")
         if auth != "":
             user = Session.object_session(self).query(User).filter_by(username=auth).one()
-            return {"owner"} if user.id == self.id else {"authenticated"}
+            return set(["owner"]) if user.id == self.id else set(["authenticated"])
         else:
-            return {"anonymous"}
+            return set(["anonymous"])
 
     def __repr__(self):
         return "<{0}: {1}, {2}>".format(self.__class__.__name__,
@@ -90,7 +90,7 @@ class SQLAlchemyModelTestCase(unittest.TestCase):
             self.assertEqual(data[k], v)
 
         etag = response.headers.get("ETag", None)
-        self.assertIsNotNone(etag)
+        self.assertTrue(etag is not None)
         response = self.app.get("/users/spam", headers={
             "Accept": "application/json",
             "If-None-Match": etag
@@ -111,7 +111,7 @@ class SQLAlchemyModelTestCase(unittest.TestCase):
             self.assertTrue(data_item.get("email", None) is None)
 
         etag = response.headers.get("ETag", None)
-        self.assertIsNotNone(etag)
+        self.assertTrue(etag is not None)
         response = self.app.get("/users/", headers={
             "Accept": "application/json",
             "If-None-Match": etag
@@ -121,7 +121,7 @@ class SQLAlchemyModelTestCase(unittest.TestCase):
     def test_collection_is_readonly(self):
         for method in ("put", "patch", "delete"):
             response = getattr(self.app, method)("/users/", headers={"Accept": "application/json"})
-            self.assertEquals(response.status_code, 405, "Method {} yielded {}".format(method.upper(), response.status))
+            self.assertEquals(response.status_code, 405, "Method {0} yielded {1}".format(method.upper(), response.status))
 
     def test_get_collection_permissions(self):
         for username in ("", "spam", "ham", "eggs"):
@@ -140,12 +140,12 @@ class SQLAlchemyModelTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
 
         data = json.loads(response.data)
-        self.assertIn("username", data)
-        self.assertIn("fullname", data)
+        self.assertTrue("username" in data)
+        self.assertTrue("fullname" in data)
         self.assertEqual(data["username"], "eggs")
 
         etag = response.headers.get("ETag", None)
-        self.assertIsNotNone(etag)
+        self.assertTrue(etag is not None)
 
         response = self.app.patch(
             "/users/eggs",
@@ -169,8 +169,8 @@ class SQLAlchemyModelTestCase(unittest.TestCase):
                                 headers={"Accept": "application/json"})
         self.assertEqual(response.status_code, 200, response.status)
         data = json.loads(response.data)
-        self.assertIn("username", data)
-        self.assertIn("fullname", data)
+        self.assertTrue("username" in data)
+        self.assertTrue("fullname" in data)
         self.assertEqual(data["fullname"], "Python Eggs")
 
     def test_patch_non_writeable(self):
@@ -179,7 +179,7 @@ class SQLAlchemyModelTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
 
         etag = response.headers.get("ETag", None)
-        self.assertIsNotNone(etag)
+        self.assertTrue(etag is not None)
         response = self.app.patch(
             "/users/eggs",
             headers={

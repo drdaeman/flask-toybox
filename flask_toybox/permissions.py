@@ -45,7 +45,7 @@ def I(access_hier, access_targets, access, **kwargs):
             name = name[:-1]
             levels = set(dropwhile(lambda n: name != n, access_hier))
         else:
-            levels = {name}
+            levels = set([name])
 
         for target in targets:
             info[access_targets[target]] |= levels

@@ -28,8 +28,8 @@ class DummyModel(object):
     #    return frozenset([])
 
     def get_columns(self, **kwargs):
-        return {ModelColumnInfo(self, "spam"),
-                ModelColumnInfo(self, "eggs")}
+        return set([ModelColumnInfo(self, "spam"),
+                    ModelColumnInfo(self, "eggs")])
 
 class DummyBaseModelView(BaseModelView):
     def fetch_object(self, *args, **kwargs):
@@ -55,9 +55,9 @@ class SimpleModelTestCase(unittest.TestCase):
     def test_permission_calc(self):
         reference = [
             {
-                "readable": {"authenticated", "owner", "staff",
-                             "admin", "system"},
-                "writeable": {"owner"},
+                "readable": set(["authenticated", "owner", "staff",
+                                 "admin", "system"]),
+                "writeable": set(["owner"]),
             },
             {
                 "readable": set(DEFAULT_ACCESS_HIER),
@@ -72,7 +72,7 @@ class SimpleModelTestCase(unittest.TestCase):
             self.assertEqual(response.status_code, 200)
             self.assertEqual(json.loads(response.data), DUMMY_DATA)
             etag = response.headers.get("ETag", None)
-            self.assertIsNotNone(etag)
+            self.assertTrue(etag is not None)
             response = self.app.get("/test", headers={
                 "Accept": "application/json",
                 "If-None-Match": etag
@@ -84,7 +84,7 @@ class SimpleModelTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(json.loads(response.data), DUMMY_DATA)
         etag = response.headers.get("ETag", None)
-        self.assertIsNotNone(etag)
+        self.assertTrue(etag is not None)
 
         response = self.app.patch(
             "/test",

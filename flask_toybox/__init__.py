@@ -1,7 +1,10 @@
 from __future__ import absolute_import
 
 from .serialization import JSON
-from collections import OrderedDict
+try:
+    from collections import OrderedDict
+except ImportError:
+    from ordereddict import OrderedDict
 
 class ToyBox(object):
     def __init__(self, app):
@@ -13,4 +16,4 @@ class ToyBox(object):
             ("application/json", JSON),
             ("text/json", JSON),
         ]))
-        app.config.setdefault("TOYBOX_DESERIALIZERS", {JSON})
+        app.config.setdefault("TOYBOX_DESERIALIZERS", set([JSON]))

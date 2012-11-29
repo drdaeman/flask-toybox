@@ -11,7 +11,10 @@ Note, if PyYaml is installed, a SafeRepresenter as YAML hashmap is added.
 
 from __future__ import absolute_import
 
-from collections import OrderedDict
+try:
+    from collections import OrderedDict
+except ImportError:
+    from ordereddict import OrderedDict
 from sqlalchemy.orm import column_property, class_mapper, relationship, ColumnProperty, object_session
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.schema import Column

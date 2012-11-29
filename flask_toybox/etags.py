@@ -6,7 +6,7 @@ import base64
 import hashlib
 import types
 
-METHODS_REQUIRE_IF_MATCH = {"PUT", "DELETE", "PATCH"}
+METHODS_REQUIRE_IF_MATCH = set(["PUT", "DELETE", "PATCH"])
 
 def _raw_object_serialize(obj):
     """
