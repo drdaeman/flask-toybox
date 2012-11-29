@@ -124,21 +124,6 @@ def saModelView(session):
                 g.etagger.set_object(obj)
             return obj
 
-        def get_columns(self, *args, **kwargs):
-            # TODO: SAModelMixin duplicates this! Refactor the code.
-            only_db_columns = kwargs.pop("only_db_columns", False)
-            columns = [
-                column_info(self, prop.key, prop.columns[0])
-                for prop in class_mapper(self.model).iterate_properties
-                if isinstance(prop, ColumnProperty) and len(prop.columns) == 1\
-                   and not prop.key.startswith("_") and\
-                   (not only_db_columns or isinstance(prop.columns[0], Column))
-            ]
-            if not only_db_columns:
-                # If there's a mix, "real" DB columns should go first
-                columns.sort(key=lambda c: c.db_column, reverse=True)
-            return columns
-
     return SAModelView
 
 def saCollectionView(session):
