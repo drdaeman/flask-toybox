@@ -25,13 +25,14 @@ What's implemented:
 - Handling of GET and PATCH requests (object retrieval and modification)
 - Relatively flexible field-level permissions. Could be always supplemented by
   TastyPie-like hydration/dehydration methods.
-- SQLAlchemy model helpers.
+- SQLAlchemy model and collection views support. Best used with Flask-SQLAlchemy.
 
 What's missing:
 
 - Better example.
 - Documentation. There are some docstrings in source code, but not much.
 - POST, PUT and DELETE requests (object creation and deletion).
+- Built-in helpers for filtering SQLAlchemy collections.
 - Overriding negotiation using query string (i.e. ``?format=json``)
 - Pagination helpers. Pagination is possible, but you have to do it by hand.
 - Nested resources.

@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name="Flask-ToyBox",
-    version="0.0.1",
+    version="0.0.2",
     url="https://github.com/drdaeman/flask-toybox/",
     license="MIT",
     author="Aleksey Zhukov",
