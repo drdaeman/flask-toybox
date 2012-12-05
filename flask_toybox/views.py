@@ -157,8 +157,11 @@ class NegotiatingMethodView(MethodView):
             response.serialized_with = serializer
 
         append_vary(response, ["Accept", "Accept-Encoding"])
+        # TODO: Move etagging to mixin injecting header using handle_response
         if etagger.etag is not None:
-            response.set_etag(etagger.etag)
+            response.set_etag(etagger.etag) 
+        if hasattr(self, "handle_response"):
+            response = self.handle_response(response)
         return response
 
 class BaseModelView(NegotiatingMethodView):

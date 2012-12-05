@@ -26,6 +26,7 @@ What's implemented:
 - Relatively flexible field-level permissions. Could be always supplemented by
   TastyPie-like hydration/dehydration methods.
 - SQLAlchemy model and collection views support. Best used with Flask-SQLAlchemy.
+- Simple pagination helper (pagination using "Range" request header).
 
 What's missing:
 
@@ -34,7 +35,6 @@ What's missing:
 - POST, PUT and DELETE requests (object creation and deletion).
 - Built-in helpers for filtering SQLAlchemy collections.
 - Overriding negotiation using query string (i.e. ``?format=json``)
-- Pagination helpers. Pagination is possible, but you have to do it by hand.
 - Nested resources.
 - Better test coverage.
 

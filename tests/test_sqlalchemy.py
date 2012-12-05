@@ -1,6 +1,6 @@
 import unittest
 
-from flask.ext.toybox.sqlalchemy import SAModelMixin, SAModelView, SACollectionView
+from flask.ext.toybox.sqlalchemy import SAModelMixin, SAModelView, SACollectionView, PaginableByNumber
 from flask.ext.toybox.permissions import make_I
 from flask.ext.toybox import ToyBox
 from flask import Flask, g, request
@@ -73,9 +73,10 @@ class SQLAlchemyModelTestCase(unittest.TestCase):
                 db_session.commit()
         app.add_url_rule("/users/<username>", view_func=UserView.as_view("user"))
 
-        class UsersView(SACollectionView):
+        class UsersView(PaginableByNumber, SACollectionView):
             model = User
             query_class = db_session.query
+            order_by = "username"
         app.add_url_rule("/users/", view_func=UsersView.as_view("users"))
 
         self.app = app.test_client()
@@ -117,6 +118,16 @@ class SQLAlchemyModelTestCase(unittest.TestCase):
             "If-None-Match": etag
         })
         self.assertEqual(response.status_code, 304, response.status)
+
+    def test_collection_pagination(self):
+        response = self.app.get("/users/", headers={"Accept": "application/json", "Range": "items=1-10"})
+        self.assertEqual(response.status_code, 206, response.status)
+        content_range = response.headers.get("Content-Range", "")
+        self.assertTrue(content_range.startswith("items 1-2/"), content_range)
+
+        data = json.loads(response.data)
+        usernames = [data_item.get("username", None) for data_item in data]
+        self.assertEqual(usernames, ["ham", "spam"])
 
     def test_collection_is_readonly(self):
         for method in ("put", "patch", "delete"):

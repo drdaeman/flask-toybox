@@ -20,8 +20,9 @@ from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.schema import Column
 from .views import ModelView, BaseModelView
 from .permissions import ModelColumnInfo
-from flask import g
+from flask import g, request
 from werkzeug.exceptions import InternalServerError, NotFound
+from werkzeug.datastructures import Range, ContentRange
 
 def column_info(model, name, column):
     return ModelColumnInfo(model, name,
@@ -146,3 +147,72 @@ class SACollectionView(SAModelViewBase, BaseModelView):
         if hasattr(g, "etagger"):
             g.etagger.set_object(objs)
         return objs
+
+class PaginableByNumber(object):
+    """
+    Mixin class, adding support for pagination by item number. Append this class
+    from the left (i.e. `class Foo(PaginableByNumber, ...)` to hook in.
+
+    This type of pagination is fine if you have reasonably small queries
+    where `OFFSET n` clauses work well.
+
+    To paginate, use `Range` header with `items` unit. For example, requesting
+    `Range: items=0-10` will result in `.limit(10).offset(0)` being applied
+    to parent's `get_query()` result.
+
+    Set `order_by` to `False` if you do ordering by yourself, otherwise query
+    will be automatically ordered on primary key(s).
+    """
+    max_limit = 50
+    order_by = None
+
+    def __init__(self, *args, **kwargs):
+        super(PaginableByNumber, self).__init__(*args, **kwargs)
+        if self.order_by is None:
+            order_by = [c for c in class_mapper(self.model).primary_key]
+        self._content_range = None
+
+    def get_query(self):
+        q = super(PaginableByNumber, self).get_query()
+
+        order_by = self.order_by
+        if order_by is not None and order_by is not False:
+            if isinstance(order_by, basestring) or not hasattr(order_by, "__iter__"):
+                order_by = (order_by,)
+            q = q.order_by(*order_by)
+
+        limit = 50
+        r = request.range
+        if r is not None:
+            if r.units != "items":
+                raise RequestedRangeNotSatisfiable("Unacceptable unit: '{0}'".format(r.units))
+            if len(r.ranges) > 1:
+                raise RequestedRangeNotSatisfiable("Multiple ranges are not supported")
+            begin, end = r.ranges[0]
+            if begin is None:
+                raise RequestedRangeNotSatisfiable("First item offset must be clearly specified")
+            limit = end - begin
+            if limit < 1:
+                raise RequestedRangeNotSatisfiable("Invalid range")
+            elif self.max_limit is not None and limit > self.max_limit:
+                raise RequestedRangeNotSatisfiable("Won't return more than {0:d} items".format(self.max_limit))
+            q = q.offset(begin)
+            self._content_range = begin
+        # XXX: Should we always answer 206 even if there was no Range header, but collection did not fit?
+        q = q.limit(limit)
+        return q
+
+    def dehydrate(self, data):
+        if self._content_range is not None:
+            # Unfortunately, Range.make_content_range does not seem
+            # to like units other than bytes, so it goes this way.
+            begin = self._content_range
+            self._content_range = ContentRange("items", begin, begin + len(data))
+        return data
+
+    def handle_response(self, response):
+        if self._content_range is not None:
+            response.status = "206 Partial Content"
+            if isinstance(self._content_range, ContentRange):
+                response.headers.set("Content-Range", self._content_range)
+        return response
