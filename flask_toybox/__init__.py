@@ -1,10 +1,7 @@
 from __future__ import absolute_import
 
 from .serialization import JSON
-try:
-    from collections import OrderedDict
-except ImportError:
-    from ordereddict import OrderedDict
+from .compat import OrderedDict
 
 class ToyBox(object):
     def __init__(self, app):

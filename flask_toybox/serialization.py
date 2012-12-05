@@ -7,11 +7,9 @@ In ToyBox, there are two concepts for this, called *serializers* and
 *deserializers*. The names are hopefully self-describing.
 """
 
+from __future__ import absolute_import
 import json
-try:
-    from collections import OrderedDict
-except ImportError:
-    from ordereddict import OrderedDict
+from .compat import OrderedDict
 import decimal
 
 class ExtendedJSONEncoder(json.JSONEncoder):
