@@ -17,9 +17,11 @@ from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.schema import Column
 from .views import ModelView, BaseModelView
 from .permissions import ModelColumnInfo
+from .utils import mixedmethod
 from flask import g, request
 from werkzeug.exceptions import InternalServerError, NotFound
 from werkzeug.datastructures import Range, ContentRange
+import json
 
 def column_info(model, name, column):
     return ModelColumnInfo(model, name,
@@ -39,10 +41,12 @@ class SAModelMixin(object):
         permissions = column.permissions
         return permissions.get(what, frozenset(["system"]))
 
-    def get_columns(self, only_db_columns=False):
+    @mixedmethod
+    def get_columns(self, cls, only_db_columns=False, only_permitted=None):
+        # cls = self.__class__
         columns = [
             column_info(self, prop.key, prop.columns[0])
-            for prop in class_mapper(self.__class__).iterate_properties
+            for prop in class_mapper(cls).iterate_properties
             if isinstance(prop, ColumnProperty) and len(prop.columns) == 1\
                and not prop.key.startswith("_") and\
                (not only_db_columns or isinstance(prop.columns[0], Column))
@@ -50,20 +54,28 @@ class SAModelMixin(object):
         if not only_db_columns:
             # If there's a mix, "real" DB columns should go first
             columns.sort(key=lambda c: c.db_column, reverse=True)
+
+        if only_permitted is not None:
+            if self is not None:
+                levels = self.check_instance_permissions()
+            else:
+                levels = cls.check_class_permissions()
+            get_perms = cls._get_permissions
+            columns = [c for c in columns
+                       if any(l in get_perms(c, what=only_permitted)
+                              for l in levels)]
         return columns
 
-    def check_permissions(self):
-        return frozenset(["system"])
+    @classmethod
+    def check_class_permissions(cls, **kwargs):
+        return set(["system"])
+
+    def check_instance_permissions(self, **kwargs):
+        return self.check_class_permissions(**kwargs)
 
     def as_dict(self, check_permissions=True):
-        columns = self.get_columns()
-
-        if check_permissions:
-            levels = self.check_permissions()
-            columns = [c for c in columns
-                       if any(l in self.__class__._get_permissions(c)
-                              for l in levels)]
-
+        check = "readable" if check_permissions else None
+        columns = self.get_columns(only_permitted=check)
         return OrderedDict((c.name, getattr(self, c.name)) for c in columns)
 
     @staticmethod
@@ -85,19 +97,28 @@ def hasUserMixin(owner_id_field):
     for models referencing Django-like user objects.
     """
     class HasUserMixin(object):
-        def check_permissions(self, user=None):
+        @classmethod
+        def check_class_permissions(cls, user=None):
             if user is None and hasattr(g, "user"):
                 user = g.user
 
             p = set()
             if user is not None:
                 p.add("authenticated")
-                if owner_id_field is not None:
-                    if user.id == getattr(self, owner_id_field): p.add("owner")
                 if getattr(user, "is_superuser", False): p.add("admin")
                 if getattr(user, "is_staff", False): p.add("staff")
             else:
                 p.add("anonymous")
+            return p
+
+        def check_instance_permissions(self, user=None):
+            if user is None and hasattr(g, "user"):
+                user = g.user
+
+            p = self.check_class_permissions(user=user)
+            if user is not None:
+                if owner_id_field is not None:
+                    if user.id == getattr(self, owner_id_field): p.add("owner")
             return p
     return HasUserMixin
 
@@ -147,6 +168,29 @@ class SACollectionView(SAModelViewBase, BaseModelView):
         if hasattr(g, "etagger"):
             g.etagger.set_object(objs)
         return objs
+
+class QueryFiltering(object):
+    """
+    Mixin class, adding support for filtering using query string.
+    Append this class from the left (i.e. `class Foo(QueryFiltering, ...)` to hook in.
+
+    Multiple filters for a same name are joined together by AND logic, exactly as
+    passing multiple filters to SQLAlchemy `filter` method.
+
+    Note, filtering is allowed only on class-level readable fields, as returned
+    by `check_class_permissions`. Other query arguments are silently ignored.
+    """
+    def get_query(self):
+        q = super(QueryFiltering, self).get_query()
+        columns = self.model.get_columns(only_permitted="readable")
+        columns = dict([(c.name, c) for c in columns])
+
+        for name, values in request.args.lists():
+            if name in columns:
+                c = getattr(self.model, name)
+                f = [c == json.loads(value) for value in values]
+                q = q.filter(*f)
+        return q
 
 class PaginableByNumber(object):
     """

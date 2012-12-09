@@ -206,8 +206,8 @@ class BaseModelView(NegotiatingMethodView):
         obj = self.get_object(*args, **kwargs)
         headers = {}
 
-        if hasattr(obj, "check_permissions"):
-            access = obj.check_permissions()
+        if hasattr(obj, "check_instance_permissions"):
+            access = obj.check_instance_permissions()
             if len(access) > 0 and access != frozenset(["system"]):
                 headers["X-Access-Classes"] = ", ".join(sorted(access))
 
@@ -228,8 +228,8 @@ class ModelView(BaseModelView):
     def patch(self, *args, **kwargs):
         obj = self.get_object(**kwargs)
 
-        if hasattr(obj, "check_permissions"):
-            access = obj.check_permissions()
+        if hasattr(obj, "check_instance_permissions"):
+            access = obj.check_instance_permissions()
             columns = dict([(c.name, c.permissions.get("writeable", set()))
                             for c in self.get_columns(only_db_columns=True)])
         else:

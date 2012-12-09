@@ -1,13 +1,13 @@
 import unittest
 
-from flask.ext.toybox.sqlalchemy import SAModelMixin, SAModelView, SACollectionView, PaginableByNumber
+from flask.ext.toybox.sqlalchemy import SAModelMixin, SAModelView, SACollectionView, PaginableByNumber, QueryFiltering
 from flask.ext.toybox.permissions import make_I
 from flask.ext.toybox import ToyBox
 from flask import Flask, g, request
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, scoped_session, Session
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, Boolean
 import json
 
 Base = declarative_base()
@@ -19,14 +19,19 @@ class User(Base, SAModelMixin):
     id = Column(Integer, primary_key=True)
     username = Column(String, info=I("r:all,w:none"))
     fullname = Column(String, info=I("rw:all"))
-    email = Column(String, info=I("rw:owner"))
+    email = Column(String, info=I("rw:owner+"))
+    badges = Column(Integer, default=0, info=I("r:all,w:staff+"))
+    is_active = Column(Boolean, default=True, info=I("r:all,w:staff+"))
+    is_staff = Column(Boolean, default=False, info=I("r:staff+,w:admin+"))
 
-    def __init__(self, username, fullname, email):
+    def __init__(self, username, fullname, email, **kwargs):
         self.username = username
         self.fullname = fullname
         self.email = email
+        for name, value in kwargs.items():
+            setattr(self, name, value)
 
-    def check_permissions(self, user=None):
+    def check_instance_permissions(self, user=None):
         # Very silly a12n.
         auth = request.args.get("auth", "")
         if auth != "":
@@ -48,9 +53,9 @@ class SQLAlchemyModelTestCase(unittest.TestCase):
 
         # Create some models
         db_session = ScopedSession()
-        db_session.add(User("spam", "Spam", "spam@users.example.org"))
-        db_session.add(User("ham", "Ham", "ham@users.example.org"))
-        db_session.add(User("eggs", "Eggs", "eggs@users.example.org"))
+        db_session.add(User("spam", "Spam", "spam@users.example.org", badges=1, is_staff=True))
+        db_session.add(User("ham", "Ham", "ham@users.example.org", is_active=False))
+        db_session.add(User("eggs", "Eggs", "eggs@users.example.org", badges=2, is_staff=True))
         db_session.commit()
         self.db_session = db_session
 
@@ -73,7 +78,7 @@ class SQLAlchemyModelTestCase(unittest.TestCase):
                 db_session.commit()
         app.add_url_rule("/users/<username>", view_func=UserView.as_view("user"))
 
-        class UsersView(PaginableByNumber, SACollectionView):
+        class UsersView(PaginableByNumber, QueryFiltering, SACollectionView):
             model = User
             query_class = db_session.query
             order_by = "username"
@@ -128,6 +133,14 @@ class SQLAlchemyModelTestCase(unittest.TestCase):
         data = json.loads(response.data)
         usernames = [data_item.get("username", None) for data_item in data]
         self.assertEqual(usernames, ["ham", "spam"])
+
+    def test_collection_filtering(self):
+        # This also tests whenever is_admin will be ignored, as it is not readable.
+        response = self.app.get("/users/?is_staff=true&is_admin=true&spam=spam", headers={"Accept": "application/json"})
+        self.assertEqual(response.status_code, 200, response.status)
+        data = json.loads(response.data)
+        usernames = set([data_item.get("username", None) for data_item in data])
+        self.assertEqual(usernames, set(["spam", "eggs"]))
 
     def test_collection_is_readonly(self):
         for method in ("put", "patch", "delete"):

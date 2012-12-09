@@ -16,15 +16,21 @@ class User(db.Model, SAModelMixin):
     first_name = db.Column(db.String(64), nullable=False, info=I("r:authenticated+,w:owner+"))
     last_name = db.Column(db.String(64), nullable=False, info=I("rw:owner+"))
 
-    def check_permissions(self, user=None):
-        user = getattr(g, "user", None)
+    @classmethod
+    def check_class_permissions(self, user=None):
+        user = user or getattr(g, "user", None)
         if user is not None:
             p = {"authenticated"}
-            if user.id == self.id:
-                p.add("owner")
             return p
         else:
             return {"anonymous"}
+
+    def check_instance_permissions(self, user=None):
+        user = user or getattr(g, "user", None)
+        p = self.check_class_permissions(user=user)
+        if user is not None and user.id == self.id:
+            p.add("owner")
+        return p
 
 class Post(db.Model, SAModelMixin):
     __tablename__ = "posts"

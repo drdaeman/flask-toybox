@@ -24,9 +24,6 @@ class DummyModel(object):
     def as_dict(self):
         return self.data
 
-    #def check_permissions(self):
-    #    return frozenset([])
-
     def get_columns(self, **kwargs):
         return set([ModelColumnInfo(self, "spam"),
                     ModelColumnInfo(self, "eggs")])
