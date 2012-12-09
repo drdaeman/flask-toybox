@@ -140,7 +140,10 @@ class SACollectionView(SAModelViewBase, BaseModelView):
         return q
 
     def fetch_object(self, *args, **kwargs):
-        objs = self.get_query(*args, **kwargs).all()
+        q = self.get_query(*args, **kwargs)
+        if hasattr(self, "limit_query"):
+            q = self.limit_query(q)
+        objs = q.all()
         if hasattr(g, "etagger"):
             g.etagger.set_object(objs)
         return objs
@@ -169,9 +172,8 @@ class PaginableByNumber(object):
             order_by = [c for c in class_mapper(self.model).primary_key]
         self._content_range = None
 
-    def get_query(self):
-        q = super(PaginableByNumber, self).get_query()
-
+    def limit_query(self, q):
+        # q = super(PaginableByNumber, self).limit_query(q)
         order_by = self.order_by
         if order_by is not None and order_by is not False:
             if isinstance(order_by, basestring) or not hasattr(order_by, "__iter__"):
@@ -195,7 +197,7 @@ class PaginableByNumber(object):
                 raise RequestedRangeNotSatisfiable("Won't return more than {0:d} items".format(self.max_limit))
             q = q.offset(begin)
             self._content_range = begin
-        # XXX: Should we always answer 206 even if there was no Range header, but collection did not fit?
+        # XXX: While we're limiting anyway, according to HTTP spec we return 206 only if there was a Range header.
         q = q.limit(limit)
         return q
 
