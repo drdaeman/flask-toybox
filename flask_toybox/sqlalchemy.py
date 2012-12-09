@@ -21,6 +21,7 @@ from .utils import mixedmethod
 from flask import g, request
 from werkzeug.exceptions import InternalServerError, NotFound
 from werkzeug.datastructures import Range, ContentRange
+import operator
 import json
 
 def column_info(model, name, column):
@@ -180,6 +181,20 @@ class QueryFiltering(object):
     Note, filtering is allowed only on class-level readable fields, as returned
     by `check_class_permissions`. Other query arguments are silently ignored.
     """
+    def decode_filter(self, name, value):
+        OPERATOR_MAP = {"eq:": operator.eq, "ne:": operator.ne,
+                        "lt:": operator.lt, "le:": operator.le,
+                        "gt:": operator.gt, "ge:": operator.ge}
+
+        op = operator.eq
+        if len(value) >= 3 and value[:3] in OPERATOR_MAP:
+            op, value = OPERATOR_MAP[value[:3]], value[3:]
+        try:
+            value = json.loads(value)
+        except ValueError:
+            pass
+        return (op, value)
+
     def get_query(self):
         q = super(QueryFiltering, self).get_query()
         columns = self.model.get_columns(only_permitted="readable")
@@ -188,7 +203,11 @@ class QueryFiltering(object):
         for name, values in request.args.lists():
             if name in columns:
                 c = getattr(self.model, name)
-                f = [c == json.loads(value) for value in values]
+                f = []
+                for value in values:
+                    op, value = self.decode_filter(name, value)
+                    if op is not None:
+                        f.append(op(c, value))
                 q = q.filter(*f)
         return q
 

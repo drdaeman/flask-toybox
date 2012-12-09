@@ -27,13 +27,13 @@ What's implemented:
   TastyPie-like hydration/dehydration methods.
 - SQLAlchemy model and collection views support. Best used with Flask-SQLAlchemy.
 - Simple pagination helper (pagination using "Range" request header).
+- Built-in helper for filtering SQLAlchemy collections.
 
 What's missing:
 
 - Better example.
 - Documentation. There are some docstrings in source code, but not much.
 - POST, PUT and DELETE requests (object creation and deletion).
-- Built-in helpers for filtering SQLAlchemy collections.
 - Overriding negotiation using query string (i.e. ``?format=json``)
 - Nested resources.
 - Better test coverage.

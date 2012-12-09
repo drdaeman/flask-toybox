@@ -135,12 +135,24 @@ class SQLAlchemyModelTestCase(unittest.TestCase):
         self.assertEqual(usernames, ["ham", "spam"])
 
     def test_collection_filtering(self):
-        # This also tests whenever is_admin will be ignored, as it is not readable.
-        response = self.app.get("/users/?is_staff=true&is_admin=true&spam=spam", headers={"Accept": "application/json"})
-        self.assertEqual(response.status_code, 200, response.status)
-        data = json.loads(response.data)
-        usernames = set([data_item.get("username", None) for data_item in data])
-        self.assertEqual(usernames, set(["spam", "eggs"]))
+        cases = [
+            # This also tests whenever is_admin will be ignored, as it is not readable.
+            ("is_staff=true&is_admin=true&spam=spam", set(["spam", "eggs"])),
+            ("badges=lt:2", set(["ham", "spam"])),
+            ("badges=eq:0&is_active=false", set(["ham"])),
+            ("badges=ne:0&is_active=false", set()),
+            ("is_staff=true&is_staff=false", set()),
+            ("badges=ne:null", set(["spam", "ham", "eggs"])),
+            ("is_staff=\"true\"", set()), # XXX: Should it return empty set or error?
+            ("is_staff=invalid", set())
+        ]
+
+        for query, expected in cases:
+            response = self.app.get("/users/?" + query, headers={"Accept": "application/json"})
+            self.assertEqual(response.status_code, 200, response.status)
+            data = json.loads(response.data)
+            usernames = set([data_item.get("username", None) for data_item in data])
+            self.assertEqual(usernames, expected)
 
     def test_collection_is_readonly(self):
         for method in ("put", "patch", "delete"):
