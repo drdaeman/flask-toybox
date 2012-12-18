@@ -1,10 +1,15 @@
 #!/usr/bin/env python
 
 from setuptools import setup
+import collections
+
+deps = ["Flask >=0.8"]
+if not hasattr(collections, "OrderedDict"):
+    deps.append("ordereddict")
 
 setup(
     name="Flask-ToyBox",
-    version="0.0.2",
+    version="0.0.3",
     url="https://github.com/drdaeman/flask-toybox/",
     license="MIT",
     author="Aleksey Zhukov",
@@ -15,7 +20,7 @@ setup(
     test_suite="tests",
     zip_safe=False,
     platforms="any",
-    install_requires=["Flask >=0.9"],
+    install_requires=deps,
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",
         "Environment :: Web Environment",
