@@ -12,8 +12,9 @@ Note, if PyYaml is installed, a SafeRepresenter as YAML hashmap is added.
 from __future__ import absolute_import
 
 from .compat import OrderedDict
-from sqlalchemy.orm import column_property, class_mapper, relationship, ColumnProperty, object_session
+from sqlalchemy.orm import column_property, class_mapper, relationship, ColumnProperty, RelationshipProperty, object_session
 from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.orm.collections import InstrumentedList
 from sqlalchemy.schema import Column
 from .views import ModelView, BaseModelView
 from .permissions import ModelColumnInfo
@@ -23,6 +24,7 @@ from werkzeug.exceptions import InternalServerError, NotFound
 from werkzeug.datastructures import Range, ContentRange
 import operator
 import json
+from copy import copy
 
 def column_info(model, name, column):
     return ModelColumnInfo(model, name,
@@ -45,13 +47,16 @@ class SAModelMixin(object):
     @mixedmethod
     def get_columns(self, cls, only_db_columns=False, only_permitted=None):
         # cls = self.__class__
-        columns = [
-            column_info(self, prop.key, prop.columns[0])
-            for prop in class_mapper(cls).iterate_properties
-            if isinstance(prop, ColumnProperty) and len(prop.columns) == 1\
-               and not prop.key.startswith("_") and\
-               (not only_db_columns or isinstance(prop.columns[0], Column))
-        ]
+        columns = []
+        for prop in class_mapper(cls).iterate_properties:
+            if prop.key.startswith("_"):
+                continue
+            if isinstance(prop, ColumnProperty) and len(prop.columns) == 1:
+                if not only_db_columns or isinstance(prop.columns[0], Column):
+                    columns.append(column_info(self, prop.key, prop.columns[0]))
+            elif isinstance(prop, RelationshipProperty):
+                columns.append(column_info(self, prop.key, prop))
+
         if not only_db_columns:
             # If there's a mix, "real" DB columns should go first
             columns.sort(key=lambda c: c.db_column, reverse=True)
@@ -77,7 +82,34 @@ class SAModelMixin(object):
     def as_dict(self, check_permissions=True):
         check = "readable" if check_permissions else None
         columns = self.get_columns(only_permitted=check)
-        return OrderedDict((c.name, getattr(self, c.name)) for c in columns)
+        result = OrderedDict()
+        if hasattr(self, "_embedded_as"):
+            parent_column = self._embedded_as
+            parent_info = getattr(parent_column, "permissions", {})
+            if "embed_only" in parent_info:
+                columns = [c for c in columns if c.name in parent_info["embed_only"]]
+            if "embed_rel" in parent_info:
+                result["rel"] = parent_info["embed_rel"]
+            if "embed_href" in parent_info:
+                f = parent_info["embed_href"]
+                if not callable(f):
+                    f = f.format
+                result["href"] = f(self)
+            # result["__embedded"] = {"as": parent_column.name}
+        for c in columns:
+            result[c.name] = getattr(self, c.name)
+            if isinstance(result[c.name], SAModelMixin):
+                result[c.name] = copy(result[c.name])
+                result[c.name]._embedded_as = c
+            elif isinstance(result[c.name], InstrumentedList):
+                l = []
+                for item in result[c.name]:
+                    if isinstance(item, SAModelMixin):
+                        item = copy(item)
+                        item._embedded_as = c
+                    l.append(item)
+                result[c.name] = l
+        return result
 
     @staticmethod
     def yaml_safe_representer(dumper, data):

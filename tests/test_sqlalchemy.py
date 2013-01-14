@@ -5,14 +5,30 @@ from flask.ext.toybox.permissions import make_I
 from flask.ext.toybox import ToyBox
 from flask import Flask, g, request
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, scoped_session, Session
+from sqlalchemy.orm import sessionmaker, scoped_session, Session, relationship
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, String, Boolean
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
 import json
 
 Base = declarative_base()
-
 I = make_I()
+
+class Company(Base, SAModelMixin):
+    __tablename__ = "test_companies"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String, info=I("r:all,w:admin+"))
+    is_expected = Column(Boolean, info=I("r:all,w:admin+"))
+
+    def __init__(self, name):
+        self.name = name
+
+    def check_instance_permissions(self, user=None):
+        return set(["authenticated"]) if request.args.get("auth", "") != "" else set(["anonymous"])
+
+    def __repr__(self):
+        return "<{0}: {1}>".format(self.__class__.__name__, self.name)
+
 class User(Base, SAModelMixin):
     __tablename__ = "test_users"
 
@@ -23,6 +39,8 @@ class User(Base, SAModelMixin):
     badges = Column(Integer, default=0, info=I("r:all,w:staff+"))
     is_active = Column(Boolean, default=True, info=I("r:all,w:staff+"))
     is_staff = Column(Boolean, default=False, info=I("r:staff+,w:admin+"))
+    company_id = Column(Integer, ForeignKey(Company.id), info=I("rw:none"))
+    company = relationship("Company", info=I("r:all,w:none", embed_only=["name"], embed_href="/companies/{0.id}"))
 
     def __init__(self, username, fullname, email, **kwargs):
         self.username = username
@@ -53,8 +71,11 @@ class SQLAlchemyModelTestCase(unittest.TestCase):
 
         # Create some models
         db_session = ScopedSession()
-        db_session.add(User("spam", "Spam", "spam@users.example.org", badges=1, is_staff=True))
-        db_session.add(User("ham", "Ham", "ham@users.example.org", is_active=False))
+        companies = [Company("The Spanish Inquisition"), Company("The Vikings")]
+        for company in companies:
+            db_session.add(company)
+        db_session.add(User("spam", "Spam", "spam@users.example.org", badges=1, is_staff=True, company=companies[0]))
+        db_session.add(User("ham", "Ham", "ham@users.example.org", is_active=False, company=companies[1]))
         db_session.add(User("eggs", "Eggs", "eggs@users.example.org", badges=2, is_staff=True))
         db_session.commit()
         self.db_session = db_session
@@ -94,6 +115,11 @@ class SQLAlchemyModelTestCase(unittest.TestCase):
         data = json.loads(response.data)
         for k, v in reference.items():
             self.assertEqual(data[k], v)
+        self.assertTrue("company" in data)
+        self.assertTrue("href" in data["company"])
+        self.assertTrue(data["company"]["href"].startswith("/companies/"))
+        self.assertTrue("name" in data["company"])
+        self.assertEqual(data["company"]["name"], "The Spanish Inquisition")
 
         etag = response.headers.get("ETag", None)
         self.assertTrue(etag is not None)
